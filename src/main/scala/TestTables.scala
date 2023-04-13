@@ -118,9 +118,9 @@ object TestTables {
   def programmingLanguages1: Table = ???
 
   // 3.2
-  val programmingLanguages2: Table = ???
+  val programmingLanguages2: Table = new Table(Nil, Nil)
 
   // 3.3
-  val programmingLanguages3: Table = ???
+  val programmingLanguages3: Table = new Table(Nil, Nil)
 
 }

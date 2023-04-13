@@ -12,17 +12,25 @@ trait FilterCond {
 }
 case class Field(colName: String, predicate: String => Boolean) extends FilterCond {
   // 2.2.
-  override def eval(r: Row): Option[Boolean] = ???
+  override def eval(r: Row): Option[Boolean] =
+    r.get(colName) match {
+      case None => None
+      case Some(value) => Some(predicate(value))
+    }
 }
 
 case class And(f1: FilterCond, f2: FilterCond) extends FilterCond {
   // 2.2.
-  override def eval(r: Row): Option[Boolean] = ???
+  override def eval(r: Row): Option[Boolean] =
+    if (f1.eval(r).isEmpty || f2.eval(r).isEmpty) None
+    else Some(f1.eval(r).get && f2.eval(r).get)
 }
 
 case class Or(f1: FilterCond, f2: FilterCond) extends FilterCond {
   // 2.2.
-  override def eval(r: Row): Option[Boolean] = ???
+  override def eval(r: Row): Option[Boolean] =
+    if (f1.eval(r).isEmpty || f2.eval(r).isEmpty) None
+    else Some(f1.eval(r).get || f2.eval(r).get)
 }
 
 trait Query {
@@ -70,26 +78,65 @@ case class Merge(key: String, t1: Query, t2: Query) extends Query {
 
 
 class Table (columnNames: Line, tabular: List[List[String]]) {
-  def getColumnNames : Line = columnNames
-  def getTabular : List[List[String]] = tabular
+  def getColumnNames: Line = columnNames
+
+  def getTabular: List[List[String]] = tabular
 
   // 1.1
-  override def toString: String = ???
+  override def toString: String = columnNames.reduce(_ + ',' + _) + '\n' + tabular.map(_.reduce(_ + ',' + _)).reduce(_ + '\n' + _)
 
   // 2.1
-  def select(columns: Line): Option[Table] = ???
+  def select(columns: Line): Option[Table] = {
+    val col = columnNames.zipWithIndex.filter(x => columns.contains(x._1)).map(_._2)
+    if (col.isEmpty) None
+    else {
+      val newTab = for (line <- tabular)
+        yield for (i <- col)
+          yield line(i)
+      Some(new Table(columns, newTab))
+    }
+  }
 
   // 2.2
-  def filter(cond: FilterCond): Option[Table] = ???
+  def filter(cond: FilterCond): Option[Table] = {
+//    val map = for (col <- columnNames.zip(tabular))
+//      yield for (x <- col._2) yield Map(col._1 -> x)
+    val map = tabular.map(columnNames.zip(_).toMap)
+
+    println(map)
+    if (cond.eval(map.head).isEmpty) return None
+
+    val newTab = for (entry <- map)
+      yield cond.eval(entry) match {
+        case Some(pred) => if (pred) entry.values.toList else Nil
+      }
+    Some(new Table(columnNames, newTab.filter(_ != Nil)))
+  }
+
 
   // 2.3.
-  def newCol(name: String, defaultVal: String): Table = ???
+  def newCol(name: String, defaultVal: String): Table = {
+    new Table(columnNames ::: List(name), tabular.map(_ ::: List(defaultVal)))
+  }
 
   // 2.4.
-  def merge(key: String, other: Table): Option[Table] = ???
+  def merge(key: String, other: Table): Option[Table] =
+    if (!columnNames.contains(key) || !other.getColumnNames.contains(key)) None
+    else {
+      val newColumns = other.getColumnNames.foldLeft(columnNames)((acc, x) => if (columnNames.contains(x)) acc else acc ::: List(x))
+      println(newColumns)
+      val index = columnNames.indexOf(key)
+      val aa = tabular.transpose.drop(0)(index)
+      println(aa)
+      val newTab = tabular ++ other.getTabular.foldRight(Nil: List[List[String]])((x, acc) => if (!aa.contains(x(index))) x :: acc else acc)
+      Some(new Table(newColumns, newTab))
+    }
 }
 
 object Table {
   // 1.2
-  def apply(s: String): Table = ???
+  def apply(s: String): Table = {
+    val str = s.split('\n').toList
+    new Table(str.take(1).flatMap(x => x.split(',')), str.drop(1).map(x => x.split(',').toList))
+  }
 }
