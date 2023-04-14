@@ -5,9 +5,9 @@ import TestTables.tableFunctional
 import TestTables.tableObjectOriented
 
 trait FilterCond {
-  def &&(other: FilterCond): FilterCond = ???
+  def &&(other: FilterCond): FilterCond = And(this, other)
 
-  def ||(other: FilterCond): FilterCond = ???
+  def ||(other: FilterCond): FilterCond = Or(this, other)
 
   // fails if the column name is not present in the row
   def eval(r: Row): Option[Boolean]
@@ -103,13 +103,12 @@ class Table(columnNames: Line, tabular: List[List[String]]) {
   def filter(cond: FilterCond): Option[Table] = {
     //    val map = for (col <- columnNames.zip(tabular))
     //      yield for (x <- col._2) yield Map(col._1 -> x)
-    val map = tabular.map(columnNames.zip(_).toMap)
 
-    if (cond.eval(map.head).isEmpty) return None
+    if (cond.eval(tabular.map(columnNames.zip(_).toMap).head).isEmpty) return None
 
-    val newTab = for (entry <- map)
-      yield cond.eval(entry) match {
-        case Some(pred) => if (pred) entry.values.toList else Nil
+    val newTab = for (line <- tabular)
+      yield cond.eval(columnNames.zip(line).toMap) match {
+        case Some(pred) => if (pred) line else Nil
       }
     Some(new Table(columnNames, newTab.filter(_ != Nil)))
   }

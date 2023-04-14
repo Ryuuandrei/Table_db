@@ -123,12 +123,11 @@ object TestTables {
   }
 
   // 3.2
-  val programmingLanguages2: Table = {
-//    Filter(And(Field("Original purpose", _ == "Application"), Field("Other paradigm", _ == "concurrent")), Value(programmingLanguages1)).eval.get
-    new Table(Nil, Nil)
-  }
+  val programmingLanguages2: Table =
+    Filter(Field("Original purpose", _ contains "Application") && Field("Other paradigms", _ contains "concurrent"), Value(programmingLanguages1)).eval.get
 
   // 3.3
-  val programmingLanguages3: Table = new Table(Nil, Nil)
+  val programmingLanguages3: Table =
+    Select(List("Language", "Object-Oriented", "Functional"), Value(programmingLanguages2)).eval.get
 
 }
