@@ -90,21 +90,18 @@ class Table(columnNames: Line, tabular: List[List[String]]) {
   // 2.1
   def select(columns: Line): Option[Table] = {
     val col = columnNames.zipWithIndex.filter(x => columns.contains(x._1)).map(_._2)
-    if (col.isEmpty) None
-    else {
-      val newTab = for (line <- tabular)
-        yield for (i <- col)
-          yield line(i)
-      Some(new Table(columns, newTab))
-    }
+    if (col.isEmpty) return None
+
+    val newTab = for (line <- tabular)
+      yield for (i <- col)
+        yield line(i)
+    Some(new Table(columns, newTab))
   }
 
   // 2.2
   def filter(cond: FilterCond): Option[Table] = {
-    //    val map = for (col <- columnNames.zip(tabular))
-    //      yield for (x <- col._2) yield Map(col._1 -> x)
 
-    if (cond.eval(tabular.map(columnNames.zip(_).toMap).head).isEmpty) return None
+    if (cond.eval(columnNames.zip(tabular.head).toMap).isEmpty) return None
 
     val newTab = for (line <- tabular)
       yield cond.eval(columnNames.zip(line).toMap) match {
@@ -124,39 +121,40 @@ class Table(columnNames: Line, tabular: List[List[String]]) {
 
     if (!columnNames.contains(key) || !other.getColumnNames.contains(key)) None
     else {
-      val newColumns = other.getColumnNames.foldLeft(columnNames)((acc, x) => if (columnNames.contains(x)) acc else acc ::: List(x))
+      val newColumns = (columnNames ::: other.getColumnNames).distinct
       val index = columnNames.indexOf(key)
-      val allKeys = other.getTabular.transpose.drop(0)(index).foldLeft(tabular.transpose.drop(0)(index))((acc, x) => if (acc.contains(x)) acc else acc ::: List(x))
-
-
       val tab1 = tabular.transpose.drop(0)(index)
       val tab2 = other.getTabular.transpose.drop(0)(index)
-      val a = tab1.zip(tabular.foldRight(Nil: List[List[String]])((x, acc) => x.foldRight(Nil: List[String])((elem, line) => if (tab1.contains(elem)) line else elem :: line) :: acc)).map(x => (x._1, columnNames.foldRight(Nil: List[String])((x, acc) => if (x == key) acc else x :: acc).zip(x._2).toMap)).toMap
-      val b = tab2.zip(other.getTabular.foldRight(Nil: List[List[String]])((x, acc) => x.foldRight(Nil: List[String])((elem, line) => if (tab2.contains(elem)) line else elem :: line) :: acc)).map(x => (x._1, other.getColumnNames.foldRight(Nil: List[String])((x, acc) => if (x == key) acc else x :: acc).zip(x._2).toMap)).toMap
+      val allKeys = (tab1 ::: tab2).distinct
 
-      val ceva: List[List[String]] = for (k <- allKeys)
+      val a = tab1.zip(tabular.map(_.filter(!tab1.contains(_)))).map(x => (x._1, columnNames.filter(_ != key).zip(x._2).toMap)).toMap
+      val b = tab2.zip(other.getTabular.map(_.filter(!tab2.contains(_)))).map(x => (x._1, other.getColumnNames.filter(_ != key).zip(x._2).toMap)).toMap
+
+      val mergedTable = for (k <- allKeys)
         yield for (c <- newColumns)
-          yield if (c == key) k
-          else if (a.contains(k) && b.contains(k)) {
+          yield
+            if (c == key) k
+            else if (a.contains(k) && b.contains(k)) {
 
-            if (a(k).contains(c) && b(k).contains(c)) {
-              if (a(k)(c) != b(k)(c)) a(k)(c) + ';' + b(k)(c)
-              else a(k)(c)
-            }
-            else if (a(k).contains(c)) a(k)(c)
-            else b(k)(c)
-          } else {
+              if (a(k).contains(c) && b(k).contains(c)) {
+                if (a(k)(c) != b(k)(c)) a(k)(c) + ';' + b(k)(c)
+                else a(k)(c)
+              }
+              else if (a(k).contains(c)) a(k)(c)
+              else b(k)(c)
 
-            if (a.contains(k)) {
-              if (a(k).contains(c)) a(k)(c)
-              else ""
             } else {
-              if (b(k).contains(c)) b(k)(c)
-              else ""
-            }
 
-          }
-      Some(new Table(newColumns, ceva))
+              if (a.contains(k)) {
+                if (a(k).contains(c)) a(k)(c)
+                else ""
+              } else {
+                if (b(k).contains(c)) b(k)(c)
+                else ""
+              }
+
+            }
+      Some(new Table(newColumns, mergedTable))
     }
   }
 }
