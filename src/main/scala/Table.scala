@@ -89,6 +89,7 @@ class Table(columnNames: Line, tabular: List[List[String]]) {
 
   // 2.1
   def select(columns: Line): Option[Table] = {
+
     val col = columnNames.zipWithIndex.filter(x => columns.contains(x._1)).map(_._2)
     if (col.isEmpty) return None
 
@@ -104,9 +105,7 @@ class Table(columnNames: Line, tabular: List[List[String]]) {
     if (cond.eval(columnNames.zip(tabular.head).toMap).isEmpty) return None
 
     val newTab = for (line <- tabular)
-      yield cond.eval(columnNames.zip(line).toMap) match {
-        case Some(pred) => if (pred) line else Nil
-      }
+      yield if (cond.eval(columnNames.zip(line).toMap).get) line else Nil
     Some(new Table(columnNames, newTab.filter(_ != Nil)))
   }
 
@@ -162,7 +161,7 @@ class Table(columnNames: Line, tabular: List[List[String]]) {
 object Table {
   // 1.2
   def apply(s: String): Table = {
-    val str = s.split('\n').toList
-    new Table(str.take(1).flatMap(x => x.split(',')), str.drop(1).map(x => x.split(",", -1).toList))
+    val str = s.split("\n").toList
+    new Table(str.take(1).flatMap(x => x.split(",")), str.drop(1).map(x => x.split(",", -1).toList))
   }
 }
